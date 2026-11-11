@@ -56,6 +56,57 @@ The NAS client ID is publicly shipped in the official client. Its device-flow lo
 
 **Refresh limitation:** the current implementation requires a non-empty client secret for refresh, including automatic refresh after HTTP 401. `nas_client()` therefore supports device-flow login but cannot refresh through the current refresh implementation. Repeat device-flow login when its access token expires. Registered integrations with suitable credentials can use refresh normally.
 
+### Verified state of each login path
+
+Measured against the live service; recorded here so nobody assumes more than the code does:
+
+| Path | State |
+|---|---|
+| `POST /v1/auth/device/code` with the NAS client id | Works — returns `device_code`, `user_code`, `verification_url` |
+| `POST /v1/auth/token` polling | Works — returns `authorization_pending` until approval |
+| The `verification_url` approval page | **Not deployed by the server** — returns 404 to a browser, so a user cannot complete the approval step for the NAS client id today |
+| Account+password sign-in | The route exists but demands a risk-control captcha token; no code here attempts to mint one |
+| Cloud drive routes (`api-pan.xunlei.com/drive/v1/*`) | Reachable and authenticated by a user's own token, but the service answers `captcha_required` — treat as unavailable to non-official clients |
+
+A registered integration whose approval page *is* deployed can use the device flow end to end. Without one, prefer [`LocalNas`](#local-nas-mode), which needs no cloud login at all.
+
+## Local NAS mode
+
+When the official `pan-xunlei-com` client runs on the same machine or LAN (Synology,
+UGREEN, LazyCat, …), it serves its own web UI and injects a session token into that page.
+`LocalNas` fetches the page, takes that token, and uses the client's local API — the same
+calls the official UI makes. No cloud login, no captcha, nothing forged.
+
+```rust
+use thunder_task_rs::LocalNas;
+use url::Url;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let nas = LocalNas::connect(Url::parse("http://127.0.0.1:2345")?).await?;
+
+    // Account, platform, download paths and disk usage
+    println!("{}", nas.device_info().await?);
+
+    // Free-tier daily task quota, e.g. 3 per day on a non-VIP account
+    let quota = nas.quota().await?;
+    println!("{} of {} used today", quota.usage, quota.limit);
+
+    // Tasks, link analysis, and (when quota allows) submission
+    let tasks = nas.tasks(Some(20)).await?;
+    let preview = nas.analyze("magnet:?xt=urn:btih:…").await?;
+    println!("{} tasks; preview: {}", tasks.len(), preview);
+    Ok(())
+}
+```
+
+`LocalNas::connect` re-runs to refresh a rotated token. The free-tier quota is **read**
+(`LocalNas::quota`) so callers can tell the user they are out of daily tasks; it is never
+circumvented, and submissions past the limit come back as an API error with the client's
+`payment required` status.
+
+
+
 ### Interactive login with a terminal QR code
 
 ```rust
@@ -157,6 +208,16 @@ async fn submit_download(client: &mut Client) -> Result<(), Box<dyn std::error::
 ```
 
 Use `Device::space` to route a task to a device. If the server omits a device's space, `devices()` fills it from the device ID. A request without `.with_space(...)` uses `SPACE_USER`, the empty string representing the personal cloud drive.
+
+### Target a specific device (cloud)
+
+The cloud drive API addresses a device with a `device_id` query parameter; without it the
+server answers `device_id is empty`. Set it once and every drive request carries it:
+
+```rust
+client.set_device_id(Some("device-id".to_string()));
+let tasks = client.tasks(TaskFilter::default()).await?;
+```
 
 ### Query remote download progress
 
