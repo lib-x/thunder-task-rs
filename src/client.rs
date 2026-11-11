@@ -21,6 +21,8 @@ pub struct ClientConfig {
     pub auth_host: Url,
     /// Tokens restored from a previous login, if any.
     pub tokens: Option<TokenSet>,
+    /// Device targeted by drive requests (cloud `device_id` parameter).
+    pub device_id: Option<String>,
 }
 
 impl ClientConfig {
@@ -32,6 +34,7 @@ impl ClientConfig {
             drive_host: Url::parse(DRIVE_HOST).expect("static drive URL"),
             auth_host: Url::parse(AUTH_HOST).expect("static auth URL"),
             tokens: None,
+            device_id: None,
         }
     }
 
@@ -177,7 +180,25 @@ impl Client {
                 "drive path must be origin-relative".into(),
             ));
         }
-        auth::endpoint(&self.config.drive_host, path)
+        let mut url = auth::endpoint(&self.config.drive_host, path)?;
+        // The cloud API addresses a specific device with `device_id`; without
+        // it the server answers "device_id is empty" for drive routes.
+        if let Some(device) = &self.config.device_id {
+            if !url.query_pairs().any(|(k, _)| k == "device_id") {
+                url.query_pairs_mut().append_pair("device_id", device);
+            }
+        }
+        Ok(url)
+    }
+
+    /// Target subsequent drive requests at a specific device (NAS box).
+    pub fn set_device_id(&mut self, device_id: Option<String>) {
+        self.config.device_id = device_id;
+    }
+
+    /// The device currently targeted by drive requests, if any.
+    pub fn device_id(&self) -> Option<&str> {
+        self.config.device_id.as_deref()
     }
 
     pub(crate) fn authorized_devices_url(&self) -> Result<Url> {
