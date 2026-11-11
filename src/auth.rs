@@ -97,6 +97,19 @@ pub struct Session {
     pub tokens: TokenSet,
 }
 
+impl Session {
+    /// Build a session from tokens you obtained yourself, e.g. exported
+    /// from a web session you logged into in your own browser. The tokens
+    /// remain yours; the server enforces the same account limits as the
+    /// official clients. Refresh still needs matching client credentials.
+    pub fn from_tokens(credentials: ClientCredentials, tokens: TokenSet) -> Self {
+        Self {
+            credentials,
+            tokens,
+        }
+    }
+}
+
 fn default_host() -> Url {
     Url::parse(AUTH_HOST).expect("static auth URL")
 }
