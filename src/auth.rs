@@ -103,21 +103,26 @@ fn default_host() -> Url {
 
 /// Request a device-code login session.
 pub async fn device_code(http: &reqwest::Client, cred: &ClientCredentials) -> Result<DeviceCode> {
-    device_code_at(http, cred, &default_host()).await
+    device_code_at(http, cred, &default_host(), None).await
 }
 
 pub(crate) async fn device_code_at(
     http: &reqwest::Client,
     cred: &ClientCredentials,
     host: &Url,
+    scope: Option<&str>,
 ) -> Result<DeviceCode> {
     validate_credentials(cred)?;
+    // The NAS client id has no user.profile scope; omitting scope lets the
+    // server apply the client's default grant (pan file/task access), which
+    // is what download control needs.
+    let mut form = vec![("client_id", cred.client_id.as_str())];
+    if let Some(scope) = scope {
+        form.push(("scope", scope));
+    }
     let resp = http
         .post(endpoint(host, "/v1/auth/device/code")?)
-        .form(&[
-            ("client_id", cred.client_id.as_str()),
-            ("scope", "user.profile"),
-        ])
+        .form(&form)
         .send()
         .await?;
     parse_json(resp).await

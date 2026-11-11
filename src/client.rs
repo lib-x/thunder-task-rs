@@ -92,6 +92,7 @@ impl Client {
             &self.config.http,
             &self.config.credentials,
             &self.config.auth_host,
+            None,
         )
         .await?;
         let url = if code.verification_url_qrcode.is_empty() {
