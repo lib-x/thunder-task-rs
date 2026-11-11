@@ -205,7 +205,7 @@ pub(crate) async fn refresh_at(
     refresh_token: &str,
     host: &Url,
 ) -> Result<TokenSet> {
-    validate_credentials(cred)?;
+    validate_refresh_credentials(cred)?;
     let resp = http
         .post(endpoint(host, "/v1/auth/token")?)
         .form(&[
@@ -316,6 +316,13 @@ fn validate_credentials(credentials: &ClientCredentials) -> Result<()> {
     if credentials.client_id.is_empty() {
         return Err(Error::MissingConfig("client_id"));
     }
+    // client_secret is optional: the device-flow endpoint accepts the NAS
+    // client id with an empty secret.
+    Ok(())
+}
+
+fn validate_refresh_credentials(credentials: &ClientCredentials) -> Result<()> {
+    validate_credentials(credentials)?;
     if credentials.client_secret.is_empty() {
         return Err(Error::MissingConfig("client_secret"));
     }
