@@ -21,18 +21,22 @@ pub mod auth;
 pub mod client;
 pub mod device;
 pub mod error;
+pub mod local;
 pub mod task;
 pub mod types;
 
 pub use client::{Client, ClientConfig};
 pub use error::{Error, Result};
+pub use local::LocalNas;
 
 /// Default authentication host (token + device-code endpoints).
 pub const AUTH_HOST: &str = "https://xluser-ssl.xunlei.com";
 /// Default cloud API host for drive/task operations.
 pub const DRIVE_HOST: &str = "https://api-gateway-pan.xunlei.com";
-/// Path prefix used by the mobile/NAS clients for drive APIs.
-pub const DRIVE_PREFIX: &str = "/xlppc/drive/v1";
+/// Drive API path prefix. Verified live: `https://api-gateway-pan.xunlei.com/
+/// drive/v1/tasks` answers 401 (auth required), while the `/xlppc/...` variant
+/// returns 404.
+pub const DRIVE_PREFIX: &str = "/drive/v1";
 
 /// Account space constant: the personal cloud drive.
 pub const SPACE_USER: &str = "";
