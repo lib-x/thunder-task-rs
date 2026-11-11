@@ -36,6 +36,17 @@ impl ClientCredentials {
             client_secret: client_secret.into(),
         }
     }
+
+    /// Credentials embedded in the official Xunlei NAS client
+    /// (`pan-xunlei-com`). The id is publicly shipped inside the client
+    /// binary; the device-flow token endpoint accepts it with an empty
+    /// secret. Use these only with the account owner's own consent.
+    pub fn nas_client() -> Self {
+        Self {
+            client_id: "X9ibISwpIp8jQ4Ya".into(),
+            client_secret: String::new(),
+        }
+    }
 }
 
 /// The pending device-code session returned by step 1.
